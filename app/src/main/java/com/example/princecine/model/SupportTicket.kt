@@ -9,15 +9,10 @@ data class SupportTicket(
     val userName: String = "",
     val title: String = "",
     val description: String = "",
-    val category: SupportCategory = SupportCategory.GENERAL,
     var status: TicketStatus = TicketStatus.PENDING,
-    val priority: Priority = Priority.MEDIUM,
     val ticketId: String = "", // Human-readable ticket ID like ST001234
-    val attachmentUrls: List<String> = emptyList(),
-    val adminNotes: String = "",
-    val resolution: String = "",
-    val messages: List<TicketMessage> = emptyList(), // New: Message thread
-    val dateRaised: Timestamp? = null, // renamed from createdAt for compatibility
+    val messages: List<TicketMessage> = emptyList(), // Message thread
+    val dateRaised: Timestamp? = null,
     val updatedAt: Timestamp? = null,
     val resolvedAt: Timestamp? = null
 )
@@ -42,19 +37,4 @@ enum class TicketStatus {
     IN_PROGRESS,
     RESOLVED,
     CLOSED
-}
-
-enum class SupportCategory {
-    BOOKING,
-    PAYMENT,
-    TECHNICAL,
-    ACCOUNT,
-    GENERAL
-}
-
-enum class Priority {
-    LOW,
-    MEDIUM,
-    HIGH,
-    URGENT
 }

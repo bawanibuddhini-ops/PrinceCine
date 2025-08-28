@@ -748,24 +748,6 @@ class FirebaseRepository {
             Result.failure(e)
         }
     }
-    
-    suspend fun updateTicketResolution(ticketId: String, resolution: String, adminNotes: String = ""): Result<Unit> {
-        return try {
-            db.collection("support_tickets").document(ticketId)
-                .update(
-                    mapOf(
-                        "resolution" to resolution,
-                        "adminNotes" to adminNotes,
-                        "status" to TicketStatus.RESOLVED,
-                        "updatedAt" to Timestamp.now(),
-                        "resolvedAt" to Timestamp.now()
-                    )
-                ).await()
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
 
     suspend fun addMessageToTicket(ticketId: String, message: com.example.princecine.model.TicketMessage): Result<Unit> {
         return try {

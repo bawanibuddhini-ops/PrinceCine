@@ -55,7 +55,7 @@ class MovieEarningsAdapter : ListAdapter<MovieEarnings, MovieEarningsAdapter.Ear
             // Format tickets sold with thousand separators
             val ticketsFormatted = NumberFormat.getNumberInstance(Locale.getDefault())
                 .format(earnings.ticketsSold)
-            tvTicketsSold.text = "Tickets: $ticketsFormatted"
+            tvTicketsSold.text = "$ticketsFormatted tickets sold"
             
             // Format earnings with currency
             val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "LK"))

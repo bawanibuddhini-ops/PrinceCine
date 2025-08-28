@@ -194,28 +194,34 @@ class SeatSelectionActivity : AppCompatActivity() {
     }
     
     private fun generateAndSaveTicket(bookingId: String) {
-        try {
-            // Create PDF ticket
-            createTicketPDF(bookingId)
-            
-            // Show success message
-            Toast.makeText(this, "Booking confirmed! Tickets purchased successfully!", Toast.LENGTH_LONG).show()
-            
-            // Show PDF download confirmation
-            Toast.makeText(this, "Ticket PDF downloaded to your device.", Toast.LENGTH_LONG).show()
-            
-            // Reset button
-            btnContinue.isEnabled = true
-            btnContinue.text = "Continue"
-            
-            // Navigate back or to confirmation screen
-            finish()
-            
-        } catch (e: Exception) {
-            Log.e("SeatSelection", "Error generating ticket", e)
-            Toast.makeText(this, "Booking saved but error generating ticket: ${e.message}", Toast.LENGTH_LONG).show()
-            btnContinue.isEnabled = true
-            btnContinue.text = "Continue - LKR ${String.format("%.0f", totalPrice)}"
+        lifecycleScope.launch {
+            try {
+                // Get current user data
+                val currentUser = repository.getCurrentUser()
+                val customerName = currentUser?.fullName ?: "Customer"
+                
+                // Create PDF ticket
+                createTicketPDF(bookingId, customerName)
+                
+                // Show success message
+                Toast.makeText(this@SeatSelectionActivity, "Booking confirmed! Tickets purchased successfully!", Toast.LENGTH_LONG).show()
+                
+                // Show PDF download confirmation
+                Toast.makeText(this@SeatSelectionActivity, "Ticket PDF downloaded to your device.", Toast.LENGTH_LONG).show()
+                
+                // Reset button
+                btnContinue.isEnabled = true
+                btnContinue.text = "Continue"
+                
+                // Navigate back or to confirmation screen
+                finish()
+                
+            } catch (e: Exception) {
+                Log.e("SeatSelection", "Error generating ticket", e)
+                Toast.makeText(this@SeatSelectionActivity, "Booking saved but error generating ticket: ${e.message}", Toast.LENGTH_LONG).show()
+                btnContinue.isEnabled = true
+                btnContinue.text = "Continue - LKR ${String.format("%.0f", totalPrice)}"
+            }
         }
     }
     
@@ -306,7 +312,7 @@ class SeatSelectionActivity : AppCompatActivity() {
         return "BK${timestamp}${random}"
     }
     
-        private fun createTicketPDF(bookingId: String): File {
+        private fun createTicketPDF(bookingId: String, customerName: String): File {
         val movieTitle = intent.getStringExtra(EXTRA_MOVIE_TITLE) ?: "Unknown Movie"
         val date = intent.getStringExtra(EXTRA_MOVIE_DATE) ?: "Today"
         val time = intent.getStringExtra(EXTRA_MOVIE_TIME) ?: "12:30 PM"
@@ -373,9 +379,9 @@ class SeatSelectionActivity : AppCompatActivity() {
         var yPos = 180f
         val lineSpacing = 35f
 
-        // Customer Name (placeholder)
+        // Customer Name
         canvas.drawText("Customer:", 60f, yPos, labelPaint)
-        canvas.drawText("John Doe", 200f, yPos, detailPaint)
+        canvas.drawText(customerName, 200f, yPos, detailPaint)
 
         yPos += lineSpacing
         canvas.drawText("Movie:", 60f, yPos, labelPaint)

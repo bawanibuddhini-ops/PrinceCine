@@ -8,6 +8,7 @@
     <color name="grey">#FF333333</color>
     <color name="light_grey">#FFCCCCCC</color>
     <color name="green">#4CAF50</color>
+    <color name="blue">#2196F3</color>
     <color name="primary">#FE3323</color>
     <color name="primary_dark">#D32F2F</color>
     <color name="accent">#FE3323</color>

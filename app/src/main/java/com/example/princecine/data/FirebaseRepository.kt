@@ -804,5 +804,104 @@ class FirebaseRepository {
             android.util.Log.e("FirebaseRepository", "Error checking database", e)
         }
     }
+
+    // Parking Methods
+    suspend fun getParkingSlots(vehicleType: com.example.princecine.model.VehicleType): Result<List<com.example.princecine.model.ParkingSlot>> {
+        return try {
+            // Get booked slots from Firebase
+            val snapshot = db.collection("parkingSlots")
+                .whereEqualTo("vehicleType", vehicleType.name)
+                .whereEqualTo("isBooked", true)
+                .get()
+                .await()
+
+            val bookedSlots = snapshot.documents.mapNotNull { doc ->
+                doc.toObject(com.example.princecine.model.ParkingSlot::class.java)?.copy(id = doc.id)
+            }
+
+            // Generate all slots for this vehicle type (30 total: 15 left, 15 right)
+            val allSlots = mutableListOf<com.example.princecine.model.ParkingSlot>()
+            val sides = listOf("L", "R") // Left and Right
+            val slotsPerSide = 15 // 15 slots per side per vehicle type
+
+            sides.forEach { side ->
+                repeat(slotsPerSide) { index ->
+                    val slotNumber = "$side-${vehicleType.name.take(1)}${index + 1}"
+                    val bookedSlot = bookedSlots.find { it.slotNumber == slotNumber }
+                    
+                    val slot = if (bookedSlot != null) {
+                        // Use booked slot from Firebase
+                        bookedSlot
+                    } else {
+                        // Create available slot dynamically
+                        com.example.princecine.model.ParkingSlot(
+                            id = slotNumber, // Use slot number as ID for unbooked slots
+                            slotNumber = slotNumber,
+                            vehicleType = vehicleType,
+                            isBooked = false,
+                            createdAt = com.google.firebase.Timestamp.now(),
+                            updatedAt = com.google.firebase.Timestamp.now()
+                        )
+                    }
+                    allSlots.add(slot)
+                }
+            }
+
+            Result.success(allSlots.sortedBy { it.slotNumber })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createParkingBooking(booking: com.example.princecine.model.ParkingBooking): Result<String> {
+        return try {
+            val batch = db.batch()
+            
+            // Create booking document
+            val bookingDoc = db.collection("parkingBookings").document()
+            val bookingData = booking.copy(
+                id = bookingDoc.id,
+                createdAt = com.google.firebase.Timestamp.now(),
+                updatedAt = com.google.firebase.Timestamp.now()
+            )
+            batch.set(bookingDoc, bookingData)
+            
+            // Create parking slot document (only when booked)
+            val slotDoc = db.collection("parkingSlots").document()
+            val parkingSlot = com.example.princecine.model.ParkingSlot(
+                id = slotDoc.id,
+                slotNumber = booking.slotNumber,
+                vehicleType = booking.vehicleType,
+                isBooked = true,
+                bookedBy = booking.userId,
+                bookingId = bookingData.bookingId,
+                createdAt = com.google.firebase.Timestamp.now(),
+                updatedAt = com.google.firebase.Timestamp.now()
+            )
+            batch.set(slotDoc, parkingSlot)
+            
+            batch.commit().await()
+            Result.success(bookingDoc.id)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getUserParkingBookings(userId: String): Result<List<com.example.princecine.model.ParkingBooking>> {
+        return try {
+            val snapshot = db.collection("parkingBookings")
+                .whereEqualTo("userId", userId)
+                .get()
+                .await()
+
+            val bookings = snapshot.documents.mapNotNull { doc ->
+                doc.toObject(com.example.princecine.model.ParkingBooking::class.java)?.copy(id = doc.id)
+            }.sortedByDescending { it.createdAt?.seconds ?: 0 }
+
+            Result.success(bookings)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
 

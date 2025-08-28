@@ -12,6 +12,11 @@
         android:title="My Tickets" />
     
     <item
+        android:id="@+id/nav_parking"
+        android:icon="@drawable/ic_parking"
+        android:title="Parking" />
+    
+    <item
         android:id="@+id/nav_support"
         android:icon="@drawable/ic_support"
         android:title="Support" />

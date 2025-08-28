@@ -166,73 +166,52 @@
                 android:id="@+id/chipGroup"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:singleSelection="true">
+                app:singleSelection="true"
+                app:chipSpacing="8dp"
+                app:chipSpacingHorizontal="12dp"
+                app:chipSpacingVertical="8dp">
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipAction"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Action"
-                    android:textColor="@color/black"
-                    app:chipBackgroundColor="@color/white"
-                    app:strokeColor="@color/red"
-                    app:strokeWidth="1dp"
-                    style="@style/Widget.MaterialComponents.Chip.Choice" />
+                    style="@style/CustomChipStyle" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipDrama"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/black"
                     android:text="Drama"
-                    app:chipBackgroundColor="@color/white"
-                    app:strokeColor="@color/red"
-                    app:strokeWidth="1dp"
-                    style="@style/Widget.MaterialComponents.Chip.Choice" />
+                    style="@style/CustomChipStyle" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipComedy"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Comedy"
-                    android:textColor="@color/black"
-                    app:chipBackgroundColor="@color/white"
-                    app:strokeColor="@color/red"
-                    app:strokeWidth="1dp"
-                    style="@style/Widget.MaterialComponents.Chip.Choice" />
+                    style="@style/CustomChipStyle" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipThriller"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Thriller"
-                    android:textColor="@color/black"
-                    app:chipBackgroundColor="@color/white"
-                    app:strokeColor="@color/red"
-                    app:strokeWidth="1dp"
-                    style="@style/Widget.MaterialComponents.Chip.Choice" />
+                    style="@style/CustomChipStyle" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipSciFi"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Sci-Fi"
-                    android:textColor="@color/black"
-                    app:chipBackgroundColor="@color/white"
-                    app:strokeColor="@color/red"
-                    app:strokeWidth="1dp"
-                    style="@style/Widget.MaterialComponents.Chip.Choice" />
+                    style="@style/CustomChipStyle" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipHorror"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Horror"
-                    android:textColor="@color/black"
-                    app:chipBackgroundColor="@color/white"
-                    app:strokeColor="@color/red"
-                    app:strokeWidth="1dp"
-                    style="@style/Widget.MaterialComponents.Chip.Choice" />
+                    style="@style/CustomChipStyle" />
 
             </com.google.android.material.chip.ChipGroup>
 

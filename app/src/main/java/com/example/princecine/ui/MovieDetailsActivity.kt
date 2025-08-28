@@ -40,13 +40,7 @@ class MovieDetailsActivity : AppCompatActivity() {
         fun newIntent(context: Context, movie: Movie): Intent {
             return Intent(context, MovieDetailsActivity::class.java).apply {
                 putExtra(EXTRA_MOVIE_ID, movie.id)
-                putExtra(EXTRA_MOVIE_TITLE, movie.title)
-                putExtra(EXTRA_MOVIE_POSTER_BASE64, movie.posterBase64)
-                putExtra(EXTRA_MOVIE_RATING, movie.rating)
-                putExtra(EXTRA_MOVIE_GENRE, movie.genre)
-                putExtra(EXTRA_MOVIE_DURATION, movie.duration)
-                putExtra(EXTRA_MOVIE_DESCRIPTION, movie.description)
-                putExtra(EXTRA_MOVIE_TIMES, movie.movieTimes)
+                // Only pass the movie ID, fetch other data from Firebase to avoid transaction size limit
             }
         }
     }

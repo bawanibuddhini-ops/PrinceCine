@@ -39,17 +39,18 @@
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvMessages"
         android:layout_width="match_parent"
-        android:layout_height="300dp"
-        android:layout_marginBottom="16dp"
+        android:layout_height="320dp"
+        android:layout_marginBottom="20dp"
         android:background="@color/light_grey"
-        android:padding="8dp" />
+        android:padding="12dp"
+        android:clipToPadding="false" />
 
     <!-- New Message Input -->
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/tilNewMessage"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
+        android:layout_marginBottom="20dp"
         android:hint="Type your message...">
 
         <com.google.android.material.textfield.TextInputEditText
@@ -59,7 +60,8 @@
             android:minLines="2"
             android:maxLines="4"
             android:inputType="textMultiLine"
-            android:textColor="@color/black" />
+            android:textColor="@color/black"
+            android:padding="12dp" />
 
     </com.google.android.material.textfield.TextInputLayout>
 
@@ -67,29 +69,41 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="end">
+        android:orientation="vertical"
+        android:layout_marginTop="8dp">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnSendMessage"
-            android:layout_width="wrap_content"
+        <!-- Primary Actions Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Send Message"
-            android:layout_marginEnd="8dp"
-            app:backgroundTint="@color/accent" />
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnResolve"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Resolve"
-            android:layout_marginEnd="8dp"
-            app:backgroundTint="@color/green"
-            android:visibility="gone" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSendMessage"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Send Message"
+                android:layout_marginEnd="6dp"
+                app:backgroundTint="@color/accent" />
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnResolve"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Resolve"
+                android:layout_marginStart="6dp"
+                app:backgroundTint="@color/green"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+        <!-- Close Button Row -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnClose"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Close"
             style="@style/Widget.MaterialComponents.Button.TextButton"

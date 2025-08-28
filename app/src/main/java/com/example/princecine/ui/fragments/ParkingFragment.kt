@@ -21,7 +21,6 @@ import com.example.princecine.data.FirebaseRepository
 import com.example.princecine.model.ParkingBooking
 import com.example.princecine.model.ParkingSlot
 import com.example.princecine.model.ParkingStatus
-import com.example.princecine.model.PaymentStatus
 import com.example.princecine.model.VehicleType
 import com.example.princecine.service.AuthService
 import com.google.android.material.button.MaterialButton
@@ -230,8 +229,7 @@ class ParkingFragment : Fragment() {
                     vehicleType = slot.vehicleType,
                     vehicleNumber = vehicleNumber,
                     fee = 300.0,
-                    status = ParkingStatus.ACTIVE,
-                    paymentStatus = PaymentStatus.PAID
+                    status = ParkingStatus.ACTIVE
                 )
 
                 btnReserveParking.isEnabled = false

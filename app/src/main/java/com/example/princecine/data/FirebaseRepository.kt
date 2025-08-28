@@ -808,16 +808,16 @@ class FirebaseRepository {
     // Parking Methods
     suspend fun getParkingSlots(vehicleType: com.example.princecine.model.VehicleType): Result<List<com.example.princecine.model.ParkingSlot>> {
         return try {
-            // Get booked slots from Firebase
-            val snapshot = db.collection("parkingSlots")
+            // Get active bookings for this vehicle type to determine which slots are booked
+            val bookingsSnapshot = db.collection("parkingBookings")
                 .whereEqualTo("vehicleType", vehicleType.name)
-                .whereEqualTo("isBooked", true)
+                .whereEqualTo("status", com.example.princecine.model.ParkingStatus.ACTIVE.name)
                 .get()
                 .await()
 
-            val bookedSlots = snapshot.documents.mapNotNull { doc ->
-                doc.toObject(com.example.princecine.model.ParkingSlot::class.java)?.copy(id = doc.id)
-            }
+            val bookedSlotNumbers = bookingsSnapshot.documents.mapNotNull { doc ->
+                doc.getString("slotNumber")
+            }.toSet()
 
             // Generate all slots for this vehicle type (30 total: 15 left, 15 right)
             val allSlots = mutableListOf<com.example.princecine.model.ParkingSlot>()
@@ -827,22 +827,28 @@ class FirebaseRepository {
             sides.forEach { side ->
                 repeat(slotsPerSide) { index ->
                     val slotNumber = "$side-${vehicleType.name.take(1)}${index + 1}"
-                    val bookedSlot = bookedSlots.find { it.slotNumber == slotNumber }
+                    val isBooked = slotNumber in bookedSlotNumbers
                     
-                    val slot = if (bookedSlot != null) {
-                        // Use booked slot from Firebase
-                        bookedSlot
-                    } else {
-                        // Create available slot dynamically
-                        com.example.princecine.model.ParkingSlot(
-                            id = slotNumber, // Use slot number as ID for unbooked slots
-                            slotNumber = slotNumber,
-                            vehicleType = vehicleType,
-                            isBooked = false,
-                            createdAt = com.google.firebase.Timestamp.now(),
-                            updatedAt = com.google.firebase.Timestamp.now()
-                        )
-                    }
+                    val slot = com.example.princecine.model.ParkingSlot(
+                        id = slotNumber, // Use slot number as ID
+                        slotNumber = slotNumber,
+                        vehicleType = vehicleType,
+                        isBooked = isBooked,
+                        bookedBy = if (isBooked) {
+                            // Get the user who booked this slot
+                            bookingsSnapshot.documents.find { 
+                                it.getString("slotNumber") == slotNumber 
+                            }?.getString("userId") ?: ""
+                        } else "",
+                        bookingId = if (isBooked) {
+                            // Get the booking ID for this slot
+                            bookingsSnapshot.documents.find { 
+                                it.getString("slotNumber") == slotNumber 
+                            }?.getString("bookingId") ?: ""
+                        } else "",
+                        createdAt = com.google.firebase.Timestamp.now(),
+                        updatedAt = com.google.firebase.Timestamp.now()
+                    )
                     allSlots.add(slot)
                 }
             }
@@ -855,33 +861,62 @@ class FirebaseRepository {
 
     suspend fun createParkingBooking(booking: com.example.princecine.model.ParkingBooking): Result<String> {
         return try {
-            val batch = db.batch()
-            
-            // Create booking document
+            // Create only the booking document - no need for separate parkingSlots
             val bookingDoc = db.collection("parkingBookings").document()
             val bookingData = booking.copy(
                 id = bookingDoc.id,
                 createdAt = com.google.firebase.Timestamp.now(),
                 updatedAt = com.google.firebase.Timestamp.now()
             )
-            batch.set(bookingDoc, bookingData)
             
-            // Create parking slot document (only when booked)
-            val slotDoc = db.collection("parkingSlots").document()
-            val parkingSlot = com.example.princecine.model.ParkingSlot(
-                id = slotDoc.id,
-                slotNumber = booking.slotNumber,
-                vehicleType = booking.vehicleType,
-                isBooked = true,
-                bookedBy = booking.userId,
-                bookingId = bookingData.bookingId,
-                createdAt = com.google.firebase.Timestamp.now(),
-                updatedAt = com.google.firebase.Timestamp.now()
-            )
-            batch.set(slotDoc, parkingSlot)
-            
-            batch.commit().await()
+            bookingDoc.set(bookingData).await()
             Result.success(bookingDoc.id)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun releaseParkingSlot(bookingId: String): Result<Unit> {
+        return try {
+            // Update booking status to COMPLETED instead of deleting parkingSlots
+            db.collection("parkingBookings")
+                .whereEqualTo("bookingId", bookingId)
+                .get()
+                .await()
+                .documents
+                .firstOrNull()
+                ?.reference
+                ?.update(
+                    mapOf(
+                        "status" to com.example.princecine.model.ParkingStatus.COMPLETED.name,
+                        "updatedAt" to com.google.firebase.Timestamp.now()
+                    )
+                )?.await()
+            
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun cancelParkingBooking(bookingId: String): Result<Unit> {
+        return try {
+            // Update booking status to CANCELLED
+            db.collection("parkingBookings")
+                .whereEqualTo("bookingId", bookingId)
+                .get()
+                .await()
+                .documents
+                .firstOrNull()
+                ?.reference
+                ?.update(
+                    mapOf(
+                        "status" to com.example.princecine.model.ParkingStatus.CANCELLED.name,
+                        "updatedAt" to com.google.firebase.Timestamp.now()
+                    )
+                )?.await()
+            
+            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }

@@ -24,7 +24,6 @@ data class ParkingBooking(
     val vehicleNumber: String = "",
     val fee: Double = 300.0,
     val status: ParkingStatus = ParkingStatus.ACTIVE,
-    val paymentStatus: PaymentStatus = PaymentStatus.PAID,
     val createdAt: Timestamp? = null,
     val updatedAt: Timestamp? = null
 )
@@ -37,6 +36,7 @@ enum class VehicleType(val displayName: String) {
 
 enum class ParkingStatus {
     ACTIVE,
+    COMPLETED,
     EXPIRED,
     CANCELLED
 }

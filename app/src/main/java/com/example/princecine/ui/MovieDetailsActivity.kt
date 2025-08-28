@@ -29,13 +29,6 @@ class MovieDetailsActivity : AppCompatActivity() {
     
     companion object {
         private const val EXTRA_MOVIE_ID = "extra_movie_id"
-        private const val EXTRA_MOVIE_TITLE = "extra_movie_title"
-        private const val EXTRA_MOVIE_POSTER_BASE64 = "extra_movie_poster_base64"
-        private const val EXTRA_MOVIE_RATING = "extra_movie_rating"
-        private const val EXTRA_MOVIE_GENRE = "extra_movie_genre"
-        private const val EXTRA_MOVIE_DURATION = "extra_movie_duration"
-        private const val EXTRA_MOVIE_DESCRIPTION = "extra_movie_description"
-        private const val EXTRA_MOVIE_TIMES = "extra_movie_times"
         
         fun newIntent(context: Context, movie: Movie): Intent {
             return Intent(context, MovieDetailsActivity::class.java).apply {
@@ -130,16 +123,18 @@ class MovieDetailsActivity : AppCompatActivity() {
             }
             
             // Get movie data to pass to seat selection
-            val movieId = intent.getStringExtra(EXTRA_MOVIE_ID) ?: ""
-            val movieTitle = tvMovieTitle.text.toString()
-            val moviePosterBase64 = intent.getStringExtra(EXTRA_MOVIE_POSTER_BASE64)
+            val movie = currentMovie
+            if (movie == null) {
+                Toast.makeText(this, "Movie data not loaded yet", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             
             // Navigate to seat selection screen with movie data
             val intent = SeatSelectionActivity.newIntent(
                 context = this,
-                movieId = movieId,
-                movieTitle = movieTitle,
-                moviePosterBase64 = moviePosterBase64,
+                movieId = movie.id,
+                movieTitle = movie.title,
+                moviePosterBase64 = null, // Don't pass large poster data
                 date = selectedDate,
                 time = selectedTime
             )
@@ -166,13 +161,12 @@ class MovieDetailsActivity : AppCompatActivity() {
         dateChips.forEach { chip ->
             chip.setOnClickListener {
                 selectDateChip(chip)
-                loadShowTimes() // Load show times when date changes
+                // Show times don't change based on date, but we could implement this later
             }
         }
         
         // Select today by default
         selectDateChip(chipDateToday)
-        loadShowTimes()
     }
     
     private fun generateDates() {
@@ -194,34 +188,7 @@ class MovieDetailsActivity : AppCompatActivity() {
         calendar.add(Calendar.DAY_OF_MONTH, 1)
         chipDateDay5.text = dateFormat.format(calendar.time)
     }
-    
-    private fun loadShowTimes() {
-        try {
-            val movieTimes = intent.getStringExtra(EXTRA_MOVIE_TIMES) ?: ""
-            Log.d("MovieDetailsActivity", "Loading show times: $movieTimes")
-            
-            // Clear existing time chips
-            timeChipsContainer.removeAllViews()
-            
-            if (movieTimes.isNotEmpty()) {
-                val times = movieTimes.split(",").map { it.trim() }
-                Log.d("MovieDetailsActivity", "Parsed ${times.size} show times")
-                
-                times.forEach { time ->
-                    if (time.isNotEmpty()) {
-                        createTimeChip(time)
-                    }
-                }
-            } else {
-                Log.w("MovieDetailsActivity", "No show times available")
-                Toast.makeText(this, "No show times available for this movie", Toast.LENGTH_SHORT).show()
-            }
-        } catch (e: Exception) {
-            Log.e("MovieDetailsActivity", "Error loading show times", e)
-            Toast.makeText(this, "Error loading show times", Toast.LENGTH_SHORT).show()
-        }
-    }
-    
+
     private fun createTimeChip(time: String) {
         val chip = Chip(this).apply {
             text = time
@@ -295,29 +262,89 @@ class MovieDetailsActivity : AppCompatActivity() {
     private fun loadMovieData() {
         try {
             val movieId = intent.getStringExtra(EXTRA_MOVIE_ID) ?: ""
-            val movieTitle = intent.getStringExtra(EXTRA_MOVIE_TITLE) ?: "Unknown Movie"
-            val moviePosterBase64 = intent.getStringExtra(EXTRA_MOVIE_POSTER_BASE64)
-            val movieRating = intent.getDoubleExtra(EXTRA_MOVIE_RATING, 0.0)
-            val movieGenre = intent.getStringExtra(EXTRA_MOVIE_GENRE) ?: "Action"
-            val movieDuration = intent.getStringExtra(EXTRA_MOVIE_DURATION) ?: "2h 15m"
-            val movieDescription = intent.getStringExtra(EXTRA_MOVIE_DESCRIPTION) ?: "No description available."
             
-            Log.d("MovieDetailsActivity", "Loading movie: $movieTitle")
+            if (movieId.isEmpty()) {
+                Toast.makeText(this, "Movie not found", Toast.LENGTH_SHORT).show()
+                finish()
+                return
+            }
             
-            // Set movie data
-            tvMovieTitle.text = movieTitle
-            tvDuration.text = movieDuration
-            tvGenre.text = movieGenre
-            chipRating.text = String.format("%.1f★", movieRating)
-            tvDescription.text = movieDescription
+            Log.d("MovieDetailsActivity", "Loading movie with ID: $movieId")
             
-            // Load movie poster from Base64
-            loadMoviePoster(moviePosterBase64)
+            // Show loading state
+            showLoadingState()
             
-            Log.d("MovieDetailsActivity", "Movie data loaded successfully")
+            lifecycleScope.launch {
+                try {
+                    val movie = repository.getMovieById(movieId)
+                    
+                    if (movie != null) {
+                        currentMovie = movie
+                        displayMovieData(movie)
+                        loadShowTimes(movie.movieTimes)
+                        Log.d("MovieDetailsActivity", "Movie data loaded successfully: ${movie.title}")
+                    } else {
+                        Log.e("MovieDetailsActivity", "Movie not found with ID: $movieId")
+                        Toast.makeText(this@MovieDetailsActivity, "Movie not found", Toast.LENGTH_SHORT).show()
+                        finish()
+                    }
+                } catch (e: Exception) {
+                    Log.e("MovieDetailsActivity", "Error loading movie data", e)
+                    Toast.makeText(this@MovieDetailsActivity, "Error loading movie details", Toast.LENGTH_SHORT).show()
+                    finish()
+                }
+            }
         } catch (e: Exception) {
-            Log.e("MovieDetailsActivity", "Error loading movie data", e)
+            Log.e("MovieDetailsActivity", "Error in loadMovieData", e)
             Toast.makeText(this, "Error loading movie details", Toast.LENGTH_SHORT).show()
+            finish()
+        }
+    }
+    
+    private fun showLoadingState() {
+        // Set placeholder data while loading
+        tvMovieTitle.text = "Loading..."
+        tvDuration.text = "Loading..."
+        tvGenre.text = "Loading..."
+        chipRating.text = "..."
+        tvDescription.text = "Loading movie details..."
+        setDefaultPoster()
+    }
+    
+    private fun displayMovieData(movie: Movie) {
+        tvMovieTitle.text = movie.title
+        tvDuration.text = movie.duration
+        tvGenre.text = movie.genre
+        chipRating.text = String.format("%.1f★", movie.rating)
+        tvDescription.text = movie.description
+        
+        // Load movie poster from Base64
+        loadMoviePoster(movie.posterBase64)
+    }
+    
+    private fun loadShowTimes(movieTimes: String?) {
+        try {
+            Log.d("MovieDetailsActivity", "Loading show times: $movieTimes")
+            
+            // Clear existing time chips
+            timeChipsContainer.removeAllViews()
+            
+            if (!movieTimes.isNullOrEmpty()) {
+                val times = movieTimes.split(",").map { it.trim() }
+                Log.d("MovieDetailsActivity", "Parsed ${times.size} show times")
+                
+                times.forEach { time ->
+                    if (time.isNotEmpty()) {
+                        createTimeChip(time)
+                    }
+                }
+            } else {
+                Log.w("MovieDetailsActivity", "No show times available")
+                Toast.makeText(this, "No show times available for this movie", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            Log.e("MovieDetailsActivity", "Error loading show times", e)
+            Toast.makeText(this, "Error loading show times", Toast.LENGTH_SHORT).show()
         }
     }
     

@@ -544,13 +544,13 @@ class FirebaseRepository {
         return try {
             val snapshot = db.collection("bookings")
                 .whereEqualTo("userId", userId)
-                .orderBy("createdAt", Query.Direction.DESCENDING)
                 .get()
                 .await()
             
             val bookings = snapshot.documents.mapNotNull { doc ->
                 doc.toObject(Booking::class.java)?.copy(id = doc.id)
-            }
+            }.sortedByDescending { it.createdAt?.seconds ?: 0 } // Sort in app instead
+            
             Result.success(bookings)
         } catch (e: Exception) {
             Result.failure(e)

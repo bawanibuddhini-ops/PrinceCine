@@ -685,17 +685,30 @@ class FirebaseRepository {
     
     suspend fun getUserTickets(userId: String): Result<List<SupportTicket>> {
         return try {
+            android.util.Log.d("FirebaseRepository", "Fetching tickets for user: $userId")
+            
             val snapshot = db.collection("support_tickets")
                 .whereEqualTo("userId", userId)
-                .orderBy("dateRaised", Query.Direction.DESCENDING)
                 .get()
                 .await()
             
+            android.util.Log.d("FirebaseRepository", "Retrieved ${snapshot.documents.size} documents from Firestore")
+            
             val tickets = snapshot.documents.mapNotNull { doc ->
-                doc.toObject(SupportTicket::class.java)?.copy(id = doc.id)
-            }
+                try {
+                    val ticket = doc.toObject(SupportTicket::class.java)?.copy(id = doc.id)
+                    android.util.Log.d("FirebaseRepository", "Parsed ticket: ${ticket?.ticketId}")
+                    ticket
+                } catch (e: Exception) {
+                    android.util.Log.e("FirebaseRepository", "Error parsing ticket document ${doc.id}: ${e.message}")
+                    null
+                }
+            }.sortedByDescending { it.dateRaised?.seconds ?: 0L }
+            
+            android.util.Log.d("FirebaseRepository", "Successfully parsed ${tickets.size} tickets")
             Result.success(tickets)
         } catch (e: Exception) {
+            android.util.Log.e("FirebaseRepository", "Error fetching user tickets: ${e.message}", e)
             Result.failure(e)
         }
     }
@@ -749,6 +762,61 @@ class FirebaseRepository {
                     )
                 ).await()
             Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun addMessageToTicket(ticketId: String, message: com.example.princecine.model.TicketMessage): Result<Unit> {
+        return try {
+            // Get current ticket
+            val ticketDoc = db.collection("support_tickets").document(ticketId).get().await()
+            val currentMessages = ticketDoc.get("messages") as? List<Map<String, Any>> ?: emptyList()
+            
+            // Convert message to map
+            val messageMap = mapOf(
+                "id" to message.id,
+                "message" to message.message,
+                "senderType" to message.senderType.name,
+                "senderName" to message.senderName,
+                "senderId" to message.senderId,
+                "timestamp" to message.timestamp,
+                "isRead" to message.isRead
+            )
+            
+            // Add new message to the list
+            val updatedMessages = currentMessages + messageMap
+            
+            // Update the ticket with new messages list
+            db.collection("support_tickets").document(ticketId)
+                .update(
+                    mapOf(
+                        "messages" to updatedMessages,
+                        "updatedAt" to Timestamp.now(),
+                        "status" to if (message.senderType == com.example.princecine.model.SenderType.ADMIN) 
+                            TicketStatus.IN_PROGRESS else null
+                    ).filterValues { it != null }
+                ).await()
+                
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun addAdminReplyToTicket(ticketId: String, adminMessage: String, adminName: String, adminId: String): Result<Unit> {
+        return try {
+            val adminReply = com.example.princecine.model.TicketMessage(
+                id = "msg_${System.currentTimeMillis()}",
+                message = adminMessage,
+                senderType = com.example.princecine.model.SenderType.ADMIN,
+                senderName = adminName,
+                senderId = adminId,
+                timestamp = Timestamp.now(),
+                isRead = false // Admin message is unread for user initially
+            )
+            
+            addMessageToTicket(ticketId, adminReply)
         } catch (e: Exception) {
             Result.failure(e)
         }

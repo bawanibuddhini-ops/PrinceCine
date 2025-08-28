@@ -16,10 +16,26 @@ data class SupportTicket(
     val attachmentUrls: List<String> = emptyList(),
     val adminNotes: String = "",
     val resolution: String = "",
+    val messages: List<TicketMessage> = emptyList(), // New: Message thread
     val dateRaised: Timestamp? = null, // renamed from createdAt for compatibility
     val updatedAt: Timestamp? = null,
     val resolvedAt: Timestamp? = null
 )
+
+data class TicketMessage(
+    val id: String = "",
+    val message: String = "",
+    val senderType: SenderType = SenderType.USER, // USER or ADMIN
+    val senderName: String = "",
+    val senderId: String = "",
+    val timestamp: Timestamp? = null,
+    val isRead: Boolean = false
+)
+
+enum class SenderType {
+    USER,
+    ADMIN
+}
 
 enum class TicketStatus {
     PENDING,

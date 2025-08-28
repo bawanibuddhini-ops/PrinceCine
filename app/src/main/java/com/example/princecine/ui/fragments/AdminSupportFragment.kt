@@ -13,9 +13,12 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.core.content.ContextCompat
 import com.example.princecine.R
 import com.example.princecine.adapter.SupportTicketAdapter
+import com.example.princecine.adapter.TicketMessageAdapter
 import com.example.princecine.data.FirebaseRepository
 import com.example.princecine.model.SupportTicket
 import com.example.princecine.model.TicketStatus
+import com.example.princecine.model.TicketMessage
+import com.example.princecine.model.SenderType
 import com.google.android.material.chip.Chip
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputLayout
@@ -95,6 +98,12 @@ class AdminSupportFragment : Fragment() {
         chipResolved.setOnClickListener { selectCapsule(chipResolved, TicketStatus.RESOLVED) }
     }
     
+    override fun onResume() {
+        super.onResume()
+        // Reload tickets when fragment becomes visible again
+        loadTicketsFromFirebase()
+    }
+    
     private fun selectCapsule(selectedChip: Chip, status: TicketStatus?) {
         // Reset all capsules to unselected state
         val allChips = listOf(chipAll, chipPending, chipResolved)
@@ -146,27 +155,35 @@ class AdminSupportFragment : Fragment() {
     }
 
     private fun showTicketDetailsDialog(ticket: SupportTicket) {
-        val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_ticket_details, null)
+        val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_ticket_messages, null)
         
-        val tvTicketId = dialogView.findViewById<MaterialTextView>(R.id.tvTicketId)
-        val tvTitle = dialogView.findViewById<MaterialTextView>(R.id.tvTitle)
-        val tvDescription = dialogView.findViewById<MaterialTextView>(R.id.tvDescription)
-        val tvStatus = dialogView.findViewById<MaterialTextView>(R.id.tvStatus)
-        val tvDateRaised = dialogView.findViewById<MaterialTextView>(R.id.tvDateRaised)
-        val btnResolve = dialogView.findViewById<MaterialButton>(R.id.btnResolve)
+        val tvTicketTitle = dialogView.findViewById<MaterialTextView>(R.id.tvTicketTitle)
+        val tvTicketStatus = dialogView.findViewById<MaterialTextView>(R.id.tvTicketStatus)
+        val rvMessages = dialogView.findViewById<RecyclerView>(R.id.rvMessages)
+        val tilNewMessage = dialogView.findViewById<TextInputLayout>(R.id.tilNewMessage)
+        val etNewMessage = dialogView.findViewById<TextInputEditText>(R.id.etNewMessage)
+        val btnSendMessage = dialogView.findViewById<MaterialButton>(R.id.btnSendMessage)
         val btnClose = dialogView.findViewById<MaterialButton>(R.id.btnClose)
+        val btnResolve = dialogView.findViewById<MaterialButton>(R.id.btnResolve)
 
-        tvTicketId.text = "Ticket ID: ${ticket.ticketId}"
-        tvTitle.text = ticket.title
-        tvDescription.text = ticket.description
-        tvStatus.text = "Status: ${ticket.status.name}"
-        tvDateRaised.text = "Date Raised: ${ticket.dateRaised}"
+        // Set ticket info
+        tvTicketTitle.text = ticket.title
+        tvTicketStatus.text = "Status: ${ticket.status.name}"
 
-        // Show/hide resolve button based on status
-        if (ticket.status == TicketStatus.PENDING) {
+        // Setup messages RecyclerView
+        val messageAdapter = com.example.princecine.adapter.TicketMessageAdapter(ticket.messages)
+        rvMessages.apply {
+            layoutManager = LinearLayoutManager(context)
+            adapter = messageAdapter
+        }
+
+        // Show resolve button only for pending tickets
+        if (ticket.status == TicketStatus.PENDING || ticket.status == TicketStatus.IN_PROGRESS) {
             btnResolve.visibility = View.VISIBLE
         } else {
             btnResolve.visibility = View.GONE
+            tilNewMessage.visibility = View.GONE
+            btnSendMessage.visibility = View.GONE
         }
 
         val dialog = MaterialAlertDialogBuilder(requireContext())
@@ -178,12 +195,70 @@ class AdminSupportFragment : Fragment() {
             dialog.dismiss()
         }
 
+        btnSendMessage.setOnClickListener {
+            val messageText = etNewMessage.text?.toString()?.trim()
+            if (messageText.isNullOrEmpty()) {
+                tilNewMessage.error = "Please enter a message"
+                return@setOnClickListener
+            }
+            tilNewMessage.error = null
+            
+            // Send admin message
+            sendAdminMessage(ticket, messageText) { updatedTicket ->
+                dialog.dismiss()
+                showTicketDetailsDialog(updatedTicket) // Refresh dialog
+            }
+        }
+
         btnResolve.setOnClickListener {
             dialog.dismiss()
             showSolveTicketDialog(ticket)
         }
 
         dialog.show()
+    }
+
+    private fun sendAdminMessage(ticket: SupportTicket, message: String, onSuccess: (SupportTicket) -> Unit) {
+        lifecycleScope.launch {
+            try {
+                val result = repository.addAdminReplyToTicket(
+                    ticketId = ticket.id,
+                    adminMessage = message,
+                    adminName = "Admin", // TODO: Get actual admin name
+                    adminId = "admin_id" // TODO: Get actual admin ID
+                )
+                
+                result.onSuccess {
+                    // Refresh the data from Firebase to ensure consistency
+                    loadTicketsFromFirebase()
+                    
+                    // Create updated ticket locally for immediate UI callback
+                    val newMessage = com.example.princecine.model.TicketMessage(
+                        id = "msg_${System.currentTimeMillis()}",
+                        message = message,
+                        senderType = com.example.princecine.model.SenderType.ADMIN,
+                        senderName = "Admin",
+                        senderId = "admin_id",
+                        timestamp = com.google.firebase.Timestamp.now(),
+                        isRead = false
+                    )
+                    
+                    val updatedMessages = ticket.messages + newMessage
+                    val updatedTicket = ticket.copy(
+                        messages = updatedMessages,
+                        status = TicketStatus.IN_PROGRESS,
+                        updatedAt = com.google.firebase.Timestamp.now()
+                    )
+                    
+                    onSuccess(updatedTicket)
+                }.onFailure { error ->
+                    Toast.makeText(requireContext(), "Error sending message: ${error.message}", Toast.LENGTH_SHORT).show()
+                }
+                
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Error sending message: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun showSolveTicketDialog(ticket: SupportTicket) {
@@ -232,17 +307,27 @@ class AdminSupportFragment : Fragment() {
     private fun resolveTicket(ticket: SupportTicket, reply: String) {
         lifecycleScope.launch {
             try {
-                val result = repository.updateTicketStatus(ticket.id, TicketStatus.RESOLVED)
+                val repository = FirebaseRepository()
+                val result = repository.addAdminReplyToTicket(
+                    ticketId = ticket.id,
+                    adminMessage = reply,
+                    adminName = "Admin", // You can get actual admin name from AuthService
+                    adminId = "admin_id" // You can get actual admin ID from AuthService
+                )
+                
                 result.onSuccess {
-                    // Update local data
-                    ticket.status = TicketStatus.RESOLVED
-                    val position = allTickets.indexOf(ticket)
-                    if (position != -1) {
-                        ticketAdapter.notifyItemChanged(position)
+                    // Update ticket status to RESOLVED
+                    val statusResult = repository.updateTicketStatus(ticket.id, TicketStatus.RESOLVED)
+                    statusResult.onSuccess {
+                        // Update local data and refresh the list
+                        ticket.status = TicketStatus.RESOLVED
+                        loadTicketsFromFirebase() // Refresh the data from Firebase
+                        Toast.makeText(requireContext(), "Ticket resolved successfully!", Toast.LENGTH_SHORT).show()
+                    }.onFailure { error ->
+                        Toast.makeText(requireContext(), "Failed to update ticket status: ${error.message}", Toast.LENGTH_LONG).show()
                     }
-                    Toast.makeText(requireContext(), "Ticket resolved successfully!", Toast.LENGTH_SHORT).show()
                 }.onFailure { error ->
-                    Toast.makeText(requireContext(), "Failed to resolve ticket: ${error.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(requireContext(), "Failed to send reply: ${error.message}", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "Error resolving ticket: ${e.message}", Toast.LENGTH_LONG).show()

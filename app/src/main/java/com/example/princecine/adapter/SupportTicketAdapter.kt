@@ -94,12 +94,11 @@ class SupportTicketAdapter(
     }
 
     fun filterTickets(status: TicketStatus?) {
-        val originalTickets = allTickets.toList()
-        val filteredTickets = if (status == null) {
-            originalTickets
+        tickets = if (status == null) {
+            allTickets.toList()
         } else {
-            originalTickets.filter { it.status == status }
+            allTickets.filter { it.status == status }
         }
-        updateTickets(filteredTickets)
+        notifyDataSetChanged()
     }
 }
